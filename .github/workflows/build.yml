@@ -1,0 +1,24 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the development containers
+        run: docker compose build
+
+      - name: Start the services and check the app responds
+        run: |
+          docker compose up -d
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:1142/ && exit 0
+            sleep 2
+          done
+          docker compose logs
+          exit 1
