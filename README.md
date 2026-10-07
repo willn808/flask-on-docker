@@ -4,13 +4,15 @@
 
 ## Overview
 
-This repo runs a small Flask web app on a production-style stack modeled on Instagram's architecture, with every service in its own Docker container managed by Docker Compose. Requests come in through an Nginx reverse proxy. Nginx serves static files and user-uploaded images directly and forwards everything else to the Flask app, which runs under the Gunicorn application server and stores its data in a PostgreSQL database. The repo includes two configurations: a development setup that uses Flask's built-in server and reloads code changes instantly, and a production setup that uses Gunicorn, Nginx, a multi-stage image build with linting, and a non-root container user.
+This is a small Flask web app running on the same kind of stack Instagram started with, where each service gets its own Docker container. Nginx sits in front and takes every request. It serves static files and uploaded images itself and passes everything else to Gunicorn, which runs the Flask app, and the app keeps its data in Postgres. There are two setups: a development one that uses Flask's built-in server and picks up code changes without a rebuild, and a production one that adds Gunicorn, Nginx, a two-stage image build that lints the code first, and a non-root user inside the container.
+
 
 ![demo](demo.gif)
 
 ## Build Instructions
 
-You need [Docker](https://docs.docker.com/get-docker/) with the Compose plugin. The app is published on port `1142`; to use a different port, change the left-hand number of the `ports` entry in `docker-compose.yml` and `docker-compose.prod.yml`.
+You need Docker with the Compose plugin. The site is published on port 1142. If that port is taken on your machine, change the left number in the `ports` line of `docker-compose.yml` and `docker-compose.prod.yml`.
+
 
 ### Development
 
@@ -18,15 +20,16 @@ You need [Docker](https://docs.docker.com/get-docker/) with the Compose plugin. 
 docker compose up -d --build
 ```
 
-- `http://localhost:1142/` returns a JSON hello-world response
-- `http://localhost:1142/upload` lets you upload an image
-- `http://localhost:1142/media/<filename>` displays the uploaded image
+Once it's up, `http://localhost:1142/` returns `{"hello": "world"}`. Go to `http://localhost:1142/upload` to upload an image, then open it at `http://localhost:1142/media/<filename>`. Uploaded filenames get cleaned up, so spaces turn into underscores.
 
-Stop the services with `docker compose down -v`.
+To stop everything and wipe the database:
 
+```bash
+docker compose down -v
+```
 ### Production
 
-The production database credentials are kept out of version control. Create a file named `.env.prod.db` in the repo root:
+The production database password lives in `.env.prod.db`, which is left out of this repo on purpose. Create it in the repo root:
 
 ```
 POSTGRES_USER=hello_flask
@@ -34,11 +37,18 @@ POSTGRES_PASSWORD=hello_flask
 POSTGRES_DB=hello_flask_prod
 ```
 
-If you choose a different username or password, update `DATABASE_URL` in `.env.prod` to match. Then build, start, and create the database tables:
+If you pick a different username or password, change `DATABASE_URL` in `.env.prod` to match, or the app can't log into its own database.
+
+Then build, start, and create the tables. Production doesn't create tables on startup, since that would wipe the data on every restart, so this step is manual and only needed once:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec web python manage.py create_db
 ```
 
-The same URLs as above now work through Nginx. Stop the services with `docker compose -f docker-compose.prod.yml down -v`.
+The same URLs work, now going through Nginx. To stop:
+
+```bash
+docker compose -f docker-compose.prod.yml down -v
+```
+
